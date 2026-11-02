@@ -1,0 +1,48 @@
+require('dns').setServers(['1.1.1.1', '8.8.8.8']);
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const helmet = require('helmet');
+require('dotenv').config();
+const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes');
+const swapRoutes = require('./routes/swapRoutes');
+const aiRoutes=require('./routes/aiRoutes');
+
+const app = express();
+
+// Middleware
+app.use(helmet());
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || origin.includes('vercel.app') || origin === 'http://localhost:5173') {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+}));
+app.use(express.json());
+
+app.use('/api/auth', authRoutes); 
+app.use('/api/users', userRoutes);
+app.use('/api/swaps', swapRoutes);
+app.use('/api/ai',aiRoutes);
+
+// Test route
+app.get('/', (req, res) => {
+  res.json({ message: 'SkillSwap API is running ' });
+});
+
+// Connect to MongoDB + Start Server
+const PORT = process.env.PORT || 5000;
+
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => {
+    console.log(' MongoDB connected');
+    app.listen(PORT, () => console.log(` Server running on port ${PORT}`));
+  })
+  .catch((err) => console.error(' DB connection failed:', err));
+
+  // all done ready to deploy
