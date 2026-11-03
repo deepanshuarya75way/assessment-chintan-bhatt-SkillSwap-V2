@@ -5,6 +5,7 @@ import axios from '../../api/axios';
 const Search = () => {
   const [skill, setSkill] = useState('');
   const [location, setLocation] = useState('');
+  const [searchedSkill, setSearchedSkill] = useState(''); // the skill the results belong to
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -20,13 +21,14 @@ const Search = () => {
     setSearched(true);
 
     try {
-      const params = { skill };
-      if (location.trim()) params.location = location;
+      const params = { skill: skill.trim() };
+      if (location.trim()) params.location = location.trim();
 
       const { data } = await axios.get('/users/search', { params });
       setResults(data.users);
+      setSearchedSkill(skill.trim());
     } catch (err) {
-      setError(err.response?.data?.message || 'Search failed');
+      setError(err.response?.data?.message || 'Search failed. Try again.');
     } finally {
       setLoading(false);
     }
@@ -35,8 +37,11 @@ const Search = () => {
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <h1 style={styles.title}>Find Skills</h1>
-        <p style={styles.subtitle}>Search for people offering skills you want to learn</p>
+        <h1 style={styles.title}>Find skills</h1>
+        <p style={styles.subtitle}>
+          Search for people offering skills you want to learn. Profiles with work samples
+          appear first.
+        </p>
       </div>
 
       {/* Search Form */}
@@ -60,67 +65,85 @@ const Search = () => {
         </button>
       </form>
 
-      {/* Error */}
       {error && <div style={styles.error}>{error}</div>}
 
       {/* Results */}
-      {searched && !loading && (
+      {searched && !loading && !error && (
         <div style={styles.resultsSection}>
           <p style={styles.resultCount}>
             {results.length === 0
-              ? 'No users found for this skill'
+              ? 'No one offers this skill yet. Try a different spelling or a related skill.'
               : `Found ${results.length} user${results.length > 1 ? 's' : ''}`}
           </p>
 
           <div style={styles.grid} className="search-grid">
-            {results.map((user) => (
-              <div key={user._id} style={styles.card}>
-                {/* Avatar */}
-                <div style={styles.avatar}>
-                  {user.name.charAt(0).toUpperCase()}
-                </div>
+            {results.map((u) => {
+              const showcased = new Set((u.showcasedSkills || []).map((s) => s.toLowerCase()));
+              const matched = u.matchedPortfolioCount || 0;
 
-                <h3 style={styles.userName}>{user.name}</h3>
+              return (
+                <div
+                  key={u._id}
+                  style={matched > 0 ? { ...styles.card, ...styles.cardShowcase } : styles.card}
+                >
+                  {matched > 0 && (
+                    <div style={styles.showcaseRibbon}>
+                      🏅 {matched} work sample{matched > 1 ? 's' : ''} for {searchedSkill}
+                    </div>
+                  )}
 
-                {user.location && (
-                  <p style={styles.location}>📍 {user.location}</p>
-                )}
+                  <div style={styles.avatar}>{u.name.charAt(0).toUpperCase()}</div>
 
-                {user.bio && (
-                  <p style={styles.bio}>{user.bio}</p>
-                )}
+                  <h3 style={styles.userName}>{u.name}</h3>
 
-                {/* Skills Offered */}
-                <div style={styles.skillSection}>
-                  <p style={styles.skillLabel}>Offers:</p>
-                  <div style={styles.skillTags}>
-                    {user.skillsOffered.map((s, i) => (
-                      <span key={i} style={styles.offerTag}>{s}</span>
-                    ))}
+                  {u.location && <p style={styles.location}>📍 {u.location}</p>}
+
+                  {u.bio && u.bio.trim() && <p style={styles.bio}>{u.bio}</p>}
+
+                  {/* Skills Offered */}
+                  <div style={styles.skillSection}>
+                    <p style={styles.skillLabel}>Offers</p>
+                    <div style={styles.skillTags}>
+                      {u.skillsOffered.map((s, i) =>
+                        showcased.has(s.toLowerCase()) ? (
+                          <span key={i} style={styles.showcaseTag}>🏅 {s}</span>
+                        ) : (
+                          <span key={i} style={styles.offerTag}>{s}</span>
+                        )
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Skills Wanted */}
+                  <div style={styles.skillSection}>
+                    <p style={styles.skillLabel}>Wants to learn</p>
+                    <div style={styles.skillTags}>
+                      {u.skillsWanted.map((s, i) => (
+                        <span key={i} style={styles.wantTag}>{s}</span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div style={styles.cardFooter}>
+                    <span style={styles.credits}>⭐ {u.credits} credits</span>
+                    <div style={styles.footerButtons}>
+                      <button
+                        style={styles.profileBtn}
+                        onClick={() => navigate(`/users/${u._id}`)}
+                      >
+                        View profile
+                      </button>
+                      <button
+                        style={styles.swapBtn}
+                        onClick={() => navigate(`/swaps/new/${u._id}`)}
+                      >
+                        Request swap
+                      </button>
+                    </div>
                   </div>
                 </div>
-
-                {/* Skills Wanted */}
-                <div style={styles.skillSection}>
-                  <p style={styles.skillLabel}>Wants to learn:</p>
-                  <div style={styles.skillTags}>
-                    {user.skillsWanted.map((s, i) => (
-                      <span key={i} style={styles.wantTag}>{s}</span>
-                    ))}
-                  </div>
-                </div>
-
-                <div style={styles.cardFooter}>
-                  <span style={styles.credits}>⭐ {user.credits} credits</span>
-                  <button
-                    style={styles.swapBtn}
-                    onClick={() => navigate(`/swaps/new/${user._id}`)}
-                  >
-                    Request Swap
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -197,6 +220,20 @@ const styles = {
     borderRadius: '12px',
     padding: '24px',
     boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+    border: '1px solid transparent',
+  },
+  cardShowcase: {
+    border: '1px solid #f3d98a',
+    boxShadow: '0 2px 14px rgba(243, 217, 138, 0.45)',
+  },
+  showcaseRibbon: {
+    backgroundColor: '#fff4d6',
+    color: '#8a5a00',
+    fontSize: '12px',
+    fontWeight: '700',
+    padding: '6px 10px',
+    borderRadius: '6px',
+    marginBottom: '14px',
   },
   avatar: {
     width: '56px',
@@ -236,7 +273,6 @@ const styles = {
     fontWeight: '600',
     color: '#888',
     marginBottom: '6px',
-    textTransform: 'uppercase',
   },
   skillTags: {
     display: 'flex',
@@ -251,6 +287,15 @@ const styles = {
     fontSize: '12px',
     fontWeight: '500',
   },
+  showcaseTag: {
+    backgroundColor: '#fff4d6',
+    color: '#8a5a00',
+    border: '1px solid #f3d98a',
+    padding: '3px 10px',
+    borderRadius: '20px',
+    fontSize: '12px',
+    fontWeight: '700',
+  },
   wantTag: {
     backgroundColor: '#e3f2fd',
     color: '#1565c0',
@@ -263,6 +308,8 @@ const styles = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: '10px',
     marginTop: '16px',
     paddingTop: '16px',
     borderTop: '1px solid #f0f0f0',
@@ -271,11 +318,25 @@ const styles = {
     fontSize: '13px',
     color: '#888',
   },
+  footerButtons: {
+    display: 'flex',
+    gap: '8px',
+  },
+  profileBtn: {
+    backgroundColor: 'white',
+    color: '#6c63ff',
+    border: '1px solid #6c63ff',
+    padding: '7px 14px',
+    borderRadius: '6px',
+    fontSize: '13px',
+    fontWeight: '600',
+    cursor: 'pointer',
+  },
   swapBtn: {
     backgroundColor: '#6c63ff',
     color: 'white',
-    border: 'none',
-    padding: '8px 16px',
+    border: '1px solid #6c63ff',
+    padding: '7px 14px',
     borderRadius: '6px',
     fontSize: '13px',
     fontWeight: '600',

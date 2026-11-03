@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
+import PortfolioManager from '../../components/PortfolioManager';
 
 const Profile = () => {
   const { user, login } = useAuth();
@@ -11,6 +12,10 @@ const Profile = () => {
     skillsOffered: '',
     skillsWanted: '',
   });
+  // Saved copies, used by the portfolio manager
+  const [portfolio, setPortfolio] = useState([]);
+  const [savedSkills, setSavedSkills] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -27,8 +32,10 @@ const Profile = () => {
           skillsOffered: (data.skillsOffered || []).join(', '),
           skillsWanted: (data.skillsWanted || []).join(', '),
         });
+        setPortfolio(data.portfolio || []);
+        setSavedSkills(data.skillsOffered || []);
       } catch (err) {
-        setError('Could not load profile');
+        setError('Could not load your profile. Refresh the page to try again.');
       } finally {
         setLoading(false);
       }
@@ -41,6 +48,12 @@ const Profile = () => {
     setSuccess(false);
   };
 
+  const toList = (text) =>
+    text
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -51,24 +64,22 @@ const Profile = () => {
         name: formData.name,
         bio: formData.bio,
         location: formData.location,
-        skillsOffered: formData.skillsOffered
-          .split(',')
-          .map((s) => s.trim())
-          .filter((s) => s.length > 0),
-        skillsWanted: formData.skillsWanted
-          .split(',')
-          .map((s) => s.trim())
-          .filter((s) => s.length > 0),
+        skillsOffered: toList(formData.skillsOffered),
+        skillsWanted: toList(formData.skillsWanted),
       };
 
       const { data } = await axios.put('/users/profile', payload);
 
-      // Update AuthContext + localStorage with fresh data (keep existing token)
+      // Keep AuthContext + localStorage fresh (existing token is kept)
       login({ ...user, ...data });
+
+      // Portfolio items for removed skills are deleted by the backend
+      setPortfolio(data.portfolio || []);
+      setSavedSkills(data.skillsOffered || []);
 
       setSuccess(true);
     } catch (err) {
-      setError(err.response?.data?.message || 'Could not update profile');
+      setError(err.response?.data?.message || 'Could not save your profile. Try again.');
     } finally {
       setSaving(false);
     }
@@ -80,9 +91,7 @@ const Profile = () => {
     <div style={styles.container}>
       <div style={styles.card}>
         <div style={styles.header}>
-          <div style={styles.avatar}>
-            {formData.name.charAt(0).toUpperCase()}
-          </div>
+          <div style={styles.avatar}>{formData.name.charAt(0).toUpperCase()}</div>
           <div>
             <h1 style={styles.title}>{formData.name}</h1>
             <p style={styles.credits}>⭐ {user?.credits} credits</p>
@@ -130,7 +139,7 @@ const Profile = () => {
           </div>
 
           <div style={styles.formGroup}>
-            <label style={styles.label}>Skills You Offer (comma separated)</label>
+            <label style={styles.label}>Skills you offer (comma separated)</label>
             <input
               type="text"
               name="skillsOffered"
@@ -139,11 +148,13 @@ const Profile = () => {
               placeholder="e.g. JavaScript, Node.js, MongoDB"
               style={styles.input}
             />
-            <p style={styles.hint}>Separate multiple skills with commas</p>
+            <p style={styles.hint}>
+              Save your profile, then link work samples for each skill in the showcase below.
+            </p>
           </div>
 
           <div style={styles.formGroup}>
-            <label style={styles.label}>Skills You Want to Learn (comma separated)</label>
+            <label style={styles.label}>Skills you want to learn (comma separated)</label>
             <input
               type="text"
               name="skillsWanted"
@@ -160,17 +171,19 @@ const Profile = () => {
             style={saving ? { ...styles.button, opacity: 0.7 } : styles.button}
             disabled={saving}
           >
-            {saving ? 'Saving...' : 'Save Changes'}
+            {saving ? 'Saving...' : 'Save changes'}
           </button>
         </form>
       </div>
+
+      <PortfolioManager skills={savedSkills} items={portfolio} onItemsChange={setPortfolio} />
     </div>
   );
 };
 
 const styles = {
   container: {
-    maxWidth: '600px',
+    maxWidth: '700px',
     margin: '0 auto',
     padding: '32px 24px',
   },

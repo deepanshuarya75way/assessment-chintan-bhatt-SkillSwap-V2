@@ -10,6 +10,7 @@ import Swaps from './pages/swaps/Swaps';
 import NewSwapRequest from './pages/swaps/NewSwapRequest';
 import Profile from './pages/profile/Profile';
 import Matches from './pages/ai/Matches';
+import UserProfile from './pages/profile/UserProfile';
 
 const HomeRoute = () => {
   const { user } = useAuth();
@@ -38,6 +39,10 @@ function AppRoutes() {
       <Route path="/profile" element={
         <ProtectedRoute><Profile /></ProtectedRoute>
       } />
+      <Route path="/user/:id" element={
+        <ProtectedRoute><UserProfile/></ProtectedRoute>
+
+      }/>
     </Routes>
   );
 }
