@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const { isValidHttpUrl } = require('../utils/validators');
 
-// One piece of evidence (project, certificate or portfolio link) attached to an offered skill
 const portfolioItemSchema = new mongoose.Schema(
   {
     skill: {
@@ -99,7 +98,7 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
-    // Work samples, certificates and portfolio links for the skills this user offers
+    
     portfolio: {
       type: [portfolioItemSchema],
       default: [],

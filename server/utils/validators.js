@@ -1,5 +1,4 @@
-// Accepts only real web addresses. Rejects javascript:, data:, ftp:, etc.
-// This matters because portfolio links are rendered as clickable <a href> on other users' screens.
+
 const isValidHttpUrl = (value) => {
   if (typeof value !== 'string') return false;
   try {
